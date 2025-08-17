@@ -79,6 +79,15 @@ export default function Page() {
 
     const ctx = canvasRef.current.getContext("2d");
 
+    // mobil için çözünürlük ve emoji font ayarı
+    const dpr = window.devicePixelRatio || 1;
+    canvasRef.current.width = GAME_W * dpr;
+    canvasRef.current.height = GAME_H * dpr;
+    canvasRef.current.style.width = GAME_W + "px";
+    canvasRef.current.style.height = GAME_H + "px";
+    ctx.scale(dpr, dpr);
+    ctx.textBaseline = "top";
+
     const loop = (now) => {
       const dt = (now - lastTimeRef.current) / 1000;
       lastTimeRef.current = now;
@@ -142,13 +151,15 @@ export default function Page() {
       ctx.fillRect(0, 0, GAME_W, GAME_H);
 
       // kalpler
-      ctx.font = "24px serif";
+      ctx.font =
+        "24px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Twemoji Mozilla','sans-serif'";
       heartsRef.current.forEach((h) => {
         ctx.fillText("💖", h.x, h.y);
       });
 
       // oyuncu
-      ctx.font = "36px serif";
+      ctx.font =
+        "36px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Twemoji Mozilla','sans-serif'";
       ctx.fillText("💝", playerX, PLAYER_Y);
 
       rafRef.current = requestAnimationFrame(loop);
@@ -226,7 +237,17 @@ export default function Page() {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur rounded-3xl z-20">
             <div className="text-5xl">💔</div>
             <h2 className="text-xl font-semibold text-pink-700">Oyun Bitti</h2>
-            <h1 className="text-xl text-pink-400">Sen bir kalp kaçırdın.<br/>Fakat ben birlikte geçirebileceğimiz tonla güzel zamanı kaçırmak istemiyorum.<br/>Bu oyunu beni affet diye yapmadım sadece belki bir nebze yumuşamanı sağlamıştır umarım.<br/>YENİLERİ ÇOK YAKINDAAA!</h1>
+            <h1 className="text-xl text-pink-400 text-center px-4">
+              Sen bir kalp kaçırdın.
+              <br />
+              Fakat ben birlikte geçirebileceğimiz tonla güzel zamanı kaçırmak
+              istemiyorum.
+              <br />
+              Bu oyunu beni affet diye yapmadım, sadece belki bir nebze
+              yumuşamanı sağlamıştır umarım.
+              <br />
+              YENİLERİ ÇOK YAKINDAAA!
+            </h1>
             <p className="text-sm text-pink-700/70">Skorun: {score}</p>
             <button
               onClick={resetGame}
