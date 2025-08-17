@@ -209,7 +209,7 @@ export default function Page() {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
             <div className="text-4xl animate-bounce">💝</div>
             <h1 className="text-2xl font-semibold text-pink-700 drop-shadow">
-              Kalp Toplama Oyunu
+              Biricik Dilrubama Oyun
             </h1>
             <p className="text-pink-700/80 text-sm">Başlamak için tıkla</p>
             <button
