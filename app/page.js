@@ -1,103 +1,250 @@
-import Image from "next/image";
+"use client";
+import { useEffect, useRef, useState } from "react";
 
-export default function Home() {
+const GAME_W = 360;
+const GAME_H = 620;
+const PLAYER_W = 50;
+const PLAYER_H = 46;
+const PLAYER_Y = GAME_H - PLAYER_H - 20;
+const HEART_SIZE = 28;
+const SPEED_BASE = 120;
+const SPEED_VAR = 80;
+const SPAWN_MS = 900;
+
+const MESSAGES = [
+  "Seni çoook çok çok özledim 💕",
+  "Dünyadaki en salak insan olabilirim ✨",
+  "Seni son nefesime kadar seveceğim 🌸",
+  "Hayatımın tek aşkı olduğun için teşekkür ederim 💝",
+  "İyi ki varsın... 💖",
+];
+
+export default function Page() {
+  const canvasRef = useRef(null);
+  const rafRef = useRef(null);
+
+  const [running, setRunning] = useState(false);
+  const [gameOver, setGameOver] = useState(false);
+  const [score, setScore] = useState(0);
+  const [best, setBest] = useState(0);
+  const [flashMsg, setFlashMsg] = useState("");
+  const [playerX, setPlayerX] = useState(GAME_W / 2 - PLAYER_W / 2);
+
+  const heartsRef = useRef([]);
+  const lastTimeRef = useRef(0);
+  const spawnAccRef = useRef(0);
+
+  // en iyi skor
+  useEffect(() => {
+    const b = Number(localStorage.getItem("bestScore") || 0);
+    setBest(b);
+  }, []);
+
+  useEffect(() => {
+    if (score > best) {
+      setBest(score);
+      localStorage.setItem("bestScore", String(score));
+    }
+  }, [score, best]);
+
+  // klavye kontrol
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!running) return;
+      const step = 20;
+      if (e.key === "ArrowLeft") {
+        setPlayerX((x) => Math.max(0, x - step));
+      }
+      if (e.key === "ArrowRight") {
+        setPlayerX((x) => Math.min(GAME_W - PLAYER_W, x + step));
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [running]);
+
+  const resetGame = () => {
+    setScore(0);
+    setFlashMsg("");
+    setGameOver(false);
+    heartsRef.current = [];
+    spawnAccRef.current = 0;
+    lastTimeRef.current = performance.now();
+    setRunning(true);
+  };
+
+  // oyun döngüsü (canvas)
+  useEffect(() => {
+    if (!running) return;
+
+    const ctx = canvasRef.current.getContext("2d");
+
+    const loop = (now) => {
+      const dt = (now - lastTimeRef.current) / 1000;
+      lastTimeRef.current = now;
+      spawnAccRef.current += dt * 1000;
+
+      // kalpleri güncelle
+      heartsRef.current.forEach((h) => {
+        h.y += h.speed * dt;
+      });
+
+      // çarpışma kontrolü
+      let caught = 0;
+      heartsRef.current = heartsRef.current.filter((h) => {
+        if (
+          h.y + HEART_SIZE >= PLAYER_Y &&
+          h.y <= PLAYER_Y + PLAYER_H &&
+          h.x + HEART_SIZE >= playerX &&
+          h.x <= playerX + PLAYER_W
+        ) {
+          caught++;
+          return false;
+        }
+        if (h.y > GAME_H) {
+          setRunning(false);
+          setGameOver(true);
+          return false;
+        }
+        return true;
+      });
+
+      if (caught > 0) {
+        setScore((s) => {
+          const ns = s + caught;
+          if (ns % 7 === 0) {
+            const msg = MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
+            setFlashMsg(msg);
+            setTimeout(() => setFlashMsg(""), 1600);
+          }
+          return ns;
+        });
+      }
+
+      // yeni kalp üret
+      if (spawnAccRef.current >= SPAWN_MS) {
+        spawnAccRef.current = 0;
+        heartsRef.current.push({
+          x: Math.random() * (GAME_W - HEART_SIZE),
+          y: -HEART_SIZE,
+          speed: SPEED_BASE + Math.random() * SPEED_VAR,
+        });
+      }
+
+      // çizim
+      ctx.clearRect(0, 0, GAME_W, GAME_H);
+
+      // arka plan gradient
+      const grad = ctx.createLinearGradient(0, 0, 0, GAME_H);
+      grad.addColorStop(0, "#ffe6f0");
+      grad.addColorStop(1, "#e6f0ff");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, GAME_W, GAME_H);
+
+      // kalpler
+      ctx.font = "24px serif";
+      heartsRef.current.forEach((h) => {
+        ctx.fillText("💖", h.x, h.y);
+      });
+
+      // oyuncu
+      ctx.font = "36px serif";
+      ctx.fillText("💝", playerX, PLAYER_Y);
+
+      rafRef.current = requestAnimationFrame(loop);
+    };
+
+    rafRef.current = requestAnimationFrame((t) => {
+      lastTimeRef.current = t;
+      loop(t);
+    });
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [running, playerX]);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="w-full min-h-screen flex items-center justify-center p-4 font-[Quicksand] bg-gradient-to-b from-pink-100 via-rose-50 to-indigo-100">
+      <div
+        className="relative rounded-3xl shadow-2xl border border-pink-200 bg-white/70 backdrop-blur-lg text-center overflow-hidden"
+        style={{ width: GAME_W, height: GAME_H }}
+        onMouseMove={(e) =>
+          running &&
+          setPlayerX(
+            Math.max(
+              0,
+              Math.min(GAME_W - PLAYER_W, e.nativeEvent.offsetX - PLAYER_W / 2)
+            )
+          )
+        }
+        onTouchMove={(e) => {
+          if (!running) return;
+          const t = e.touches?.[0];
+          if (t) {
+            const rect = canvasRef.current.getBoundingClientRect();
+            const relX = t.clientX - rect.left;
+            setPlayerX(
+              Math.max(0, Math.min(GAME_W - PLAYER_W, relX - PLAYER_W / 2))
+            );
+          }
+        }}
+      >
+        {/* skor bar */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between text-sm z-10">
+          <div className="bg-pink-200 text-pink-800 font-medium rounded-full px-3 py-1 shadow">
+            Skor: <b>{score}</b>
+          </div>
+          <div className="bg-pink-200 text-pink-800 font-medium rounded-full px-3 py-1 shadow">
+            En İyi: <b>{best}</b>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* mesaj */}
+        {flashMsg && (
+          <div className="absolute left-1/2 -translate-x-1/2 top-16 bg-white/90 rounded-2xl px-4 py-2 text-center text-pink-600 shadow-md z-10">
+            {flashMsg}
+          </div>
+        )}
+
+        {/* başlangıç ekranı */}
+        {!running && !gameOver && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 z-10">
+            <div className="text-4xl animate-bounce">💝</div>
+            <h1 className="text-2xl font-semibold text-pink-700 drop-shadow">
+              Kalp Toplama Oyunu
+            </h1>
+            <p className="text-pink-700/80 text-sm">Başlamak için tıkla</p>
+            <button
+              onClick={resetGame}
+              className="mt-2 px-6 py-2 rounded-full bg-pink-500 text-white font-medium shadow hover:scale-105 active:scale-95 transition"
+            >
+              Başla
+            </button>
+          </div>
+        )}
+
+        {/* oyun bitti ekranı */}
+        {gameOver && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/80 backdrop-blur rounded-3xl z-20">
+            <div className="text-5xl">💔</div>
+            <h2 className="text-xl font-semibold text-pink-700">Oyun Bitti</h2>
+            <h1 className="text-xl text-pink-400">Sen bir kalp kaçırdın.<br/>Fakat ben birlikte geçirebileceğimiz tonla güzel zamanı kaçırmak istemiyorum.<br/>Bu oyunu beni affet diye yapmadım sadece belki bir nebze yumuşamanı sağlamıştır umarım.<br/>YENİLERİ ÇOK YAKINDAAA!</h1>
+            <p className="text-sm text-pink-700/70">Skorun: {score}</p>
+            <button
+              onClick={resetGame}
+              className="mt-2 px-6 py-2 rounded-full bg-pink-500 text-white font-medium shadow hover:scale-105 active:scale-95 transition"
+            >
+              Tekrar Başla
+            </button>
+          </div>
+        )}
+
+        {/* canvas */}
+        <canvas
+          ref={canvasRef}
+          width={GAME_W}
+          height={GAME_H}
+          className="absolute inset-0"
+        ></canvas>
+      </div>
     </div>
   );
 }

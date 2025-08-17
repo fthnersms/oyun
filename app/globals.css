@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* pastel arka plan (istersen sonra değiştiririz) */
+body {
+  background: linear-gradient(180deg, #ffe4f0, #f3e8ff);
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
