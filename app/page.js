@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from "react";
 
 const GAME_W = 360;
 const GAME_H = 620;
+
 const PLAYER_W = 50;
 const PLAYER_H = 46;
 const PLAYER_Y = GAME_H - PLAYER_H - 20;
+
 const HEART_SIZE = 28;
 const SPEED_BASE = 120;
 const SPEED_VAR = 80;
@@ -19,6 +21,35 @@ const MESSAGES = [
   "İyi ki varsın... 💖",
 ];
 
+/** Basit ve hızlı kalp çizici (emoji yerine) — her cihazda görünür */
+function drawHeartTopLeft(ctx, x, y, size, fill = "#ff4d8d", shadow = true) {
+  ctx.save();
+  if (shadow) {
+    ctx.shadowColor = "rgba(0,0,0,0.15)";
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 2;
+  }
+  ctx.fillStyle = fill;
+
+  // kalbi merkezlemek için biraz kaydır
+  ctx.translate(x + size / 2, y + size * 0.38);
+
+  ctx.beginPath();
+  const s = size;
+  // üst sol kavis
+  ctx.moveTo(0, s * 0.35);
+  ctx.bezierCurveTo(0, 0, s * 0.5, 0, s * 0.5, s * 0.35);
+  // alt uç
+  ctx.bezierCurveTo(s * 0.5, s * 0.9, 0, s, 0, s * 1.15);
+  ctx.bezierCurveTo(0, s, -s * 0.5, s * 0.9, -s * 0.5, s * 0.35);
+  // üst sağ kavis
+  ctx.bezierCurveTo(-s * 0.5, 0, 0, 0, 0, s * 0.35);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
 export default function Page() {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
@@ -30,7 +61,7 @@ export default function Page() {
   const [flashMsg, setFlashMsg] = useState("");
   const [playerX, setPlayerX] = useState(GAME_W / 2 - PLAYER_W / 2);
 
-  const heartsRef = useRef([]);
+  const heartsRef = useRef([]); // {x,y,speed}
   const lastTimeRef = useRef(0);
   const spawnAccRef = useRef(0);
 
@@ -39,7 +70,6 @@ export default function Page() {
     const b = Number(localStorage.getItem("bestScore") || 0);
     setBest(b);
   }, []);
-
   useEffect(() => {
     if (score > best) {
       setBest(score);
@@ -52,12 +82,8 @@ export default function Page() {
     const onKey = (e) => {
       if (!running) return;
       const step = 20;
-      if (e.key === "ArrowLeft") {
-        setPlayerX((x) => Math.max(0, x - step));
-      }
-      if (e.key === "ArrowRight") {
-        setPlayerX((x) => Math.min(GAME_W - PLAYER_W, x + step));
-      }
+      if (e.key === "ArrowLeft") setPlayerX((x) => Math.max(0, x - step));
+      if (e.key === "ArrowRight") setPlayerX((x) => Math.min(GAME_W - PLAYER_W, x + step));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -77,16 +103,16 @@ export default function Page() {
   useEffect(() => {
     if (!running) return;
 
-    const ctx = canvasRef.current.getContext("2d");
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
 
-    // mobil için çözünürlük ve emoji font ayarı
+    // mobilde netlik için DPR ölçeklemesi
     const dpr = window.devicePixelRatio || 1;
-    canvasRef.current.width = GAME_W * dpr;
-    canvasRef.current.height = GAME_H * dpr;
-    canvasRef.current.style.width = GAME_W + "px";
-    canvasRef.current.style.height = GAME_H + "px";
-    ctx.scale(dpr, dpr);
-    ctx.textBaseline = "top";
+    canvas.width = GAME_W * dpr;
+    canvas.height = GAME_H * dpr;
+    canvas.style.width = GAME_W + "px";
+    canvas.style.height = GAME_H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const loop = (now) => {
       const dt = (now - lastTimeRef.current) / 1000;
@@ -94,19 +120,18 @@ export default function Page() {
       spawnAccRef.current += dt * 1000;
 
       // kalpleri güncelle
-      heartsRef.current.forEach((h) => {
-        h.y += h.speed * dt;
-      });
+      for (const h of heartsRef.current) h.y += h.speed * dt;
 
-      // çarpışma kontrolü
+      // çarpışma & kaçırma kontrolü
       let caught = 0;
       heartsRef.current = heartsRef.current.filter((h) => {
-        if (
+        const collide =
           h.y + HEART_SIZE >= PLAYER_Y &&
           h.y <= PLAYER_Y + PLAYER_H &&
           h.x + HEART_SIZE >= playerX &&
-          h.x <= playerX + PLAYER_W
-        ) {
+          h.x <= playerX + PLAYER_W;
+
+        if (collide) {
           caught++;
           return false;
         }
@@ -130,7 +155,7 @@ export default function Page() {
         });
       }
 
-      // yeni kalp üret
+      // yeni kalp
       if (spawnAccRef.current >= SPAWN_MS) {
         spawnAccRef.current = 0;
         heartsRef.current.push({
@@ -143,24 +168,20 @@ export default function Page() {
       // çizim
       ctx.clearRect(0, 0, GAME_W, GAME_H);
 
-      // arka plan gradient
+      // arka plan
       const grad = ctx.createLinearGradient(0, 0, 0, GAME_H);
       grad.addColorStop(0, "#ffe6f0");
       grad.addColorStop(1, "#e6f0ff");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, GAME_W, GAME_H);
 
-      // kalpler
-      ctx.font =
-        "24px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Twemoji Mozilla','sans-serif'";
-      heartsRef.current.forEach((h) => {
-        ctx.fillText("💖", h.x, h.y);
-      });
+      // düşen kalpler (pastel pembe)
+      for (const h of heartsRef.current) {
+        drawHeartTopLeft(ctx, h.x, h.y, HEART_SIZE, "#ff5fa2", true);
+      }
 
-      // oyuncu
-      ctx.font =
-        "36px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Twemoji Mozilla','sans-serif'";
-      ctx.fillText("💝", playerX, PLAYER_Y);
+      // oyuncu kalbi (daha sıcak renk, hafif büyük)
+      drawHeartTopLeft(ctx, playerX, PLAYER_Y, 36, "#ff3b8d", true);
 
       rafRef.current = requestAnimationFrame(loop);
     };
@@ -169,6 +190,7 @@ export default function Page() {
       lastTimeRef.current = t;
       loop(t);
     });
+
     return () => cancelAnimationFrame(rafRef.current);
   }, [running, playerX]);
 
@@ -240,11 +262,9 @@ export default function Page() {
             <h1 className="text-xl text-pink-400 text-center px-4">
               Sen bir kalp kaçırdın.
               <br />
-              Fakat ben birlikte geçirebileceğimiz tonla güzel zamanı kaçırmak
-              istemiyorum.
+              Fakat ben birlikte geçirebileceğimiz tonla güzel zamanı kaçırmak istemiyorum.
               <br />
-              Bu oyunu beni affet diye yapmadım, sadece belki bir nebze
-              yumuşamanı sağlamıştır umarım.
+              Bu oyunu beni affet diye yapmadım; sadece belki bir nebze yumuşamanı sağlamıştır umarım.
               <br />
               YENİLERİ ÇOK YAKINDAAA!
             </h1>
@@ -259,12 +279,7 @@ export default function Page() {
         )}
 
         {/* canvas */}
-        <canvas
-          ref={canvasRef}
-          width={GAME_W}
-          height={GAME_H}
-          className="absolute inset-0"
-        ></canvas>
+        <canvas ref={canvasRef} width={GAME_W} height={GAME_H} className="absolute inset-0" />
       </div>
     </div>
   );
